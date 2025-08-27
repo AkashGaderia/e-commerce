@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ShopEZ — Demo E‑commerce (User Side)</title>
+  <style>
+    :root{
+      --bg:#0f172a;          /* slate-900 */
+      --card:#111827;        /* gray-900 */
+      --muted:#334155;       /* slate-600 */
+      --text:#e5e7eb;        /* gray-200 */
+      --accent:#16a34a;      /* green-600 */
+      --accent-2:#22d3ee;    /* cyan-400 */
+      --danger:#ef4444;      /* red-500 */
+      --warn:#f59e0b;        /* amber-500 */
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;height:100%;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Inter,sans-serif;background:linear-gradient(175deg,#0b1220 0%,#0f172a 100%);color:var(--text)}
+    a{color:inherit;text-decoration:none}
+    .container{max-width:1100px;margin:0 auto;padding:18px}
+    header{position:sticky;top:0;z-index:10;background:rgba(17,24,39,.7);backdrop-filter:blur(10px);border-bottom:1px solid #1f2937}
+    .nav{display:flex;gap:14px;align-items:center;justify-content:space-between}
+    .brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.3px}
+    .brand .logo{width:36px;height:36px;border-radius:12px;background:radial-gradient(circle at 30% 30%,var(--accent-2),var(--accent));box-shadow:0 6px 18px rgba(34,211,238,.35)}
+    .search{flex:1;display:flex;gap:10px;max-width:520px;margin:0 16px}
+    .search input,.search select{background:#0b1220;border:1px solid #263043;color:var(--text);padding:10px 12px;border-radius:12px;outline:none;width:100%}
+    .btn{cursor:pointer;border:0;border-radius:12px;padding:10px 14px;font-weight:600;background:var(--accent);color:white;box-shadow:var(--shadow)}
+    .btn.ghost{background:#0b1220;border:1px solid #1f2937;color:#cbd5e1}
+    .btn.warn{background:var(--warn)}
+    .btn.danger{background:var(--danger)}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:18px}
+    .card{background:rgba(17,24,39,.85);border:1px solid #1f2937;border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
+    .card .img{height:160px;background:#0b1220;display:flex;align-items:center;justify-content:center}
+    .card .img img{max-width:75%;max-height:75%;filter:drop-shadow(0 12px 20px rgba(0,0,0,.5))}
+    .card .body{padding:14px}
+    .price{font-weight:800}
+    .muted{color:#94a3b8;font-size:.9rem}
+    .stack{display:flex;flex-direction:column;gap:8px}
+    .row{display:flex;gap:10px;align-items:center}
+    .spacer{flex:1}
+    main{min-height:calc(100dvh - 160px)}
+    footer{border-top:1px solid #1f2937;background:#0b1220;color:#94a3b8}
+    .pill{font-size:.78rem;background:#0b1220;border:1px solid #263043;padding:6px 10px;border-radius:20px}
+    .section-title{font-size:1.2rem;font-weight:800;margin:16px 0}
+    .empty{opacity:.8;text-align:center;padding:40px}
+    .qty{display:inline-flex;align-items:center;gap:8px}
+    .qty input{width:56px;text-align:center;background:#0b1220;border:1px solid #263043;color:var(--text);padding:6px 8px;border-radius:10px}
+    .table{width:100%;border-collapse:collapse}
+    .table th,.table td{padding:12px;border-bottom:1px solid #1f2937;text-align:left}
+    .table th{color:#94a3b8;font-weight:600}
+    .right{text-align:right}
+    .hero{display:flex;gap:18px;align-items:center;justify-content:space-between;background:linear-gradient(90deg, rgba(34,211,238,.07), rgba(22,163,74,.07));padding:16px;border:1px solid #1f2937;border-radius:18px}
+    .tag{background:rgba(34,211,238,.15);border:1px solid rgba(34,211,238,.35);padding:4px 8px;border-radius:999px;font-size:.8rem}
+    .hidden{display:none}
+    @media (max-width:720px){
+      .search{max-width:100%}
+      .hero{flex-direction:column;align-items:flex-start}
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container nav">
+      <a href="#/" class="brand"><span class="logo"></span> <span>ShopEZ</span></a>
+      <div class="search">
+        <select id="categorySelect"></select>
+        <input id="searchInput" type="search" placeholder="Search products…" />
+        <button class="btn" id="searchBtn">Search</button>
+      </div>
+      <div class="row">
+        <a class="pill" href="#/orders">Orders</a>
+        <a class="pill" href="#/cart">🛒 <span id="cartCount">0</span></a>
+        <a class="pill" id="authBtn" href="#/login">Login</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="container" id="app"></main>
+
+  <footer>
+    <div class="container row" style="padding:16px;">
+      <span>© <span id="year"></span> ShopEZ Demo</span>
+      <span class="spacer"></span>
+      <span>Built with vanilla HTML/CSS/JS • LocalStorage</span>
+    </div>
+  </footer>
+
+<script>
+/******************************
+ * Minimal Client-Side Store  *
+ ******************************/
+const Store = {
+  key: 'shopez',
+  load(){
+    const raw = localStorage.getItem(this.key);
+    return raw ? JSON.parse(raw) : { user:null, cart:[], orders:[], products:seedProducts(), categories:[] };
+  },
+  save(data){ localStorage.setItem(this.key, JSON.stringify(data)); },
+  get data(){ return this._data || (this._data = this.load()); },
+  commit(){ this.save(this.data); refreshHeader(); },
+  reset(){ localStorage.removeItem(this.key); location.reload(); }
+};
+
+/***********************
+ * Seed Product Data   *
+ ***********************/
+function seedProducts(){
+  const cats = ['Mobiles','Laptops','Accessories','Home','Fashion'];
+  const imgs = {
+    phone:'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?q=80&w=640&auto=format&fit=crop',
+    laptop:'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?q=80&w=640&auto=format&fit=crop',
+    watch:'https://images.unsplash.com/photo-1518441982125-4e1d3e4a32c1?q=80&w=640&auto=format&fit=crop',
+    chair:'https://images.unsplash.com/photo-1549187774-b4e9b0445b41?q=80&w=640&auto=format&fit=crop',
+    shoes:'https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=640&auto=format&fit=crop'
+  };
+  const products = [
+    {id:'p1', name:'PixelOne X', price:45999, category:'Mobiles', image:imgs.phone, desc:'Powerful Android smartphone with stunning camera.'},
+    {id:'p2', name:'NoteMax Pro', price:19999, category:'Mobiles', image:imgs.phone, desc:'Battery beast with 6000mAh and fast charge.'},
+    {id:'p3', name:'UltraBook 14', price:74999, category:'Laptops', image:imgs.laptop, desc:'Lightweight laptop with 12‑core CPU and 16GB RAM.'},
+    {id:'p4', name:'GameBox 15', price:89999, category:'Laptops', image:imgs.laptop, desc:'Gaming laptop with RTX graphics and 144Hz display.'},
+    {id:'p5', name:'Chrono Smartwatch', price:6999, category:'Accessories', image:imgs.watch, desc:'AMOLED screen, GPS, 100+ sports modes.'},
+    {id:'p6', name:'Aero Chair', price:5999, category:'Home', image:imgs.chair, desc:'Ergonomic mesh chair for long work sessions.'},
+    {id:'p7', name:'Stride Runner', price:3499, category:'Fashion', image:imgs.shoes, desc:'Breathable running shoes with responsive cushioning.'}
+  ];
+  const data = Store._data || {categories:[]};
+  data.categories = cats;
+  return products;
+}
+
+/***********************
+ * Utilities            *
+ ***********************/
+const $ = (sel,root=document) => root.querySelector(sel);
+const $$ = (sel,root=document) => Array.from(root.querySelectorAll(sel));
+const fmt = n => new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:0}).format(n);
+
+function toast(msg){
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#111827;border:1px solid #1f2937;padding:10px 14px;border-radius:12px;box-shadow:0 8px 22px rgba(0,0,0,.35);z-index:50';
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(),1600);
+}
+
+/***********************
+ * Auth (demo only)     *
+ ***********************/
+async function sha256(str){
+  const enc = new TextEncoder().encode(str);
+  const hash = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+async function signup(name,email,pw){
+  const d = Store.data;
+  if(d.user && d.user.email===email) throw new Error('Already signed in');
+  const hash = await sha256(pw);
+  d.user = {name,email,hash};
+  Store.commit();
+}
+
+async function login(email,pw){
+  const d = Store.data;
+  if(!d.user || d.user.email!==email) throw new Error('User not found (signup first)');
+  const hash = await sha256(pw);
+  if(hash!==d.user.hash) throw new Error('Invalid credentials');
+  d.user.loggedIn = true;
+  Store.commit();
+}
+
+function logout(){ const d=Store.data; if(d.user) d.user.loggedIn=false; Store.commit(); }
+
+/***********************
+ * Cart & Orders        *
+ ***********************/
+function addToCart(id,qty=1){
+  const d = Store.data;
+  const item = d.cart.find(c=>c.id===id);
+  if(item) item.qty += qty; else d.cart.push({id,qty});
+  Store.commit();
+  toast('Added to cart');
+}
+function removeFromCart(id){
+  const d = Store.data; d.cart = d.cart.filter(c=>c.id!==id); Store.commit(); toast('Removed');
+}
+function updateQty(id,qty){ const d=Store.data; const it=d.cart.find(c=>c.id===id); if(it){ it.qty=Math.max(1,qty|0); Store.commit(); }}
+function cartTotal(){
+  const d = Store.data; let total=0;
+  for(const c of d.cart){ const p=d.products.find(p=>p.id===c.id); if(p) total += p.price * c.qty; }
+  return total;
+}
+function placeOrder(){
+  const d = Store.data;
+  if(!d.user || !d.user.loggedIn) throw new Error('Login required');
+  if(d.cart.length===0) throw new Error('Cart is empty');
+  const items = d.cart.map(c=>({ id:c.id, qty:c.qty, price: d.products.find(p=>p.id===c.id)?.price||0 }));
+  const order = { id:'o'+Date.now(), items, total:cartTotal(), createdAt:new Date().toISOString(), status:'Pending' };
+  d.orders.unshift(order); d.cart=[]; Store.commit();
+  return order.id;
+}
+
+/***********************
+ * Routing              *
+ ***********************/
+const routes = {
+  '': renderHome,
+  '#/': renderHome,
+  '#/product': renderProduct,
+  '#/cart': renderCart,
+  '#/checkout': renderCheckout,
+  '#/login': renderLogin,
+  '#/signup': renderSignup,
+  '#/orders': renderOrders
+};
+
+function navigate(){
+  const hash = location.hash || '#/';
+  const [base, _, param] = hash.split('/');
+  if(hash.startsWith('#/product/')) return renderProduct(param);
+  const fn = routes[hash] || renderHome;
+  fn();
+}
+window.addEventListener('hashchange', navigate);
+
+function refreshHeader(){
+  const d = Store.data; $('#cartCount').textContent = d.cart.reduce((a,c)=>a+c.qty,0);
+  const btn = $('#authBtn');
+  if(d.user?.loggedIn){ btn.textContent = d.user.name.split(' ')[0]+' · Logout'; btn.href='#/'; btn.onclick=(e)=>{ e.preventDefault(); logout(); toast('Logged out'); navigate(); }; }
+  else { btn.textContent='Login'; btn.href='#/login'; btn.onclick=null; }
+}
+
+/***********************
+ * Renderers            *
+ ***********************/
+function renderHome(){
+  const d = Store.data;
+  const q = (new URLSearchParams(location.search)).get('q') || '';
+  const sel = $('#categorySelect'); sel.innerHTML = '<option value="">All Categories</option>' + d.categories.map(c=>`<option value="${c}">${c}</option>`).join('');
+  const query = (window._query)||{ text:'', cat:'' };
+  const results = d.products.filter(p =>
+    (query.cat? p.category===query.cat : true) &&
+    (query.text? (p.name.toLowerCase().includes(query.text) || p.desc.toLowerCase().includes(query.text)) : true)
+  );
+  $('#app').innerHTML = `
+    <section class="hero">
+      <div>
+        <div class="tag">User side demo — no backend</div>
+        <h2 style="margin:.4rem 0 0">Find your next favorite product</h2>
+        <div class="muted">Search, filter by category, view details, add to cart, checkout, and view order history.</div>
+      </div>
+      <div class="row">
+        <button class="btn ghost" onclick="Store.reset()">Reset Demo</button>
+      </div>
+    </section>
+    <h3 class="section-title">Products ${query.cat? '· '+query.cat: ''} ${query.text? '· search: '+query.text:''}</h3>
+    <div class="grid" id="productGrid"></div>
+  `;
+  const grid = $('#productGrid');
+  if(results.length===0){ grid.innerHTML = `<div class="card empty">No products found.</div>`; return; }
+  grid.innerHTML = results.map(p=>`
+    <article class="card">
+      <div class="img"><img alt="${p.name}" src="${p.image}"></div>
+      <div class="body stack">
+        <div class="row"><strong>${p.name}</strong><span class="spacer"></span><span class="pill">${p.category}</span></div>
+        <div class="muted">${p.desc}</div>
+        <div class="row"><span class="price">${fmt(p.price)}</span><span class="spacer"></span>
+          <a class="btn ghost" href="#/product/${p.id}">View</a>
+          <button class="btn" onclick="addToCart('${p.id}',1)">Add</button>
+        </div>
+      </div>
+    </article>
+  `).join('');
+
+  // wire search controls in header
+  $('#searchBtn').onclick = ()=>{
+    const cat = $('#categorySelect').value;
+    const text = ($('#searchInput').value||'').trim().toLowerCase();
+    window._query = {cat, text};
+    renderHome();
+  };
+}
+
+function renderProduct(id){
+  const d = Store.data; const p = d.products.find(x=>x.id===id);
+  if(!p){ $('#app').innerHTML = `<div class="empty card">Product not found</div>`; return; }
+  $('#app').innerHTML = `
+    <div class="row" style="margin:10px 0 18px">
+      <a class="pill" href="#/">← Back to products</a>
+    </div>
+    <section class="card" style="display:grid;grid-template-columns:1fr 1fr;gap:18px;padding:18px;">
+      <div class="img" style="height:280px"><img src="${p.image}" alt="${p.name}"></div>
+      <div class="stack">
+        <h2 style="margin:0">${p.name}</h2>
+        <div class="muted">Category: ${p.category}</div>
+        <div>${p.desc}</div>
+        <div class="price" style="font-size:1.4rem">${fmt(p.price)}</div>
+        <div class="row">
+          <button class="btn" onclick="addToCart('${p.id}',1)">Add to Cart</button>
+          <a class="btn ghost" href="#/cart">Go to Cart</a>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderCart(){
+  const d = Store.data; const rows = d.cart.map(c=>{ const p=d.products.find(p=>p.id===c.id); return {c,p}; });
+  $('#app').innerHTML = `
+    <h3 class="section-title">Your Cart</h3>
+    ${rows.length===0? `<div class="card empty">Your cart is empty.</div>`: `
+    <div class="card" style="padding:8px 10px;overflow:auto">
+      <table class="table">
+        <thead><tr><th>Product</th><th>Price</th><th>Qty</th><th class="right">Subtotal</th><th></th></tr></thead>
+        <tbody>
+          ${rows.map(({c,p})=>`
+            <tr>
+              <td class="row"><img src="${p.image}" alt="${p.name}" style="width:46px;height:46px;border-radius:10px;object-fit:cover"> ${p.name}</td>
+              <td>${fmt(p.price)}</td>
+              <td class="qty">
+                <input type="number" min="1" value="${c.qty}" onchange="updateQty('${c.id}', this.value)">
+              </td>
+              <td class="right">${fmt(p.price*c.qty)}</td>
+              <td class="right"><button class="btn danger" onclick="removeFromCart('${c.id}')">Remove</button></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <span class="spacer"></span>
+      <div class="card" style="padding:14px 16px;min-width:260px">
+        <div class="row"><strong>Total</strong><span class="spacer"></span><strong>${fmt(cartTotal())}</strong></div>
+        <div class="row" style="margin-top:10px">
+          <a class="btn ghost" href="#/">Continue Shopping</a>
+          <a class="btn" href="#/checkout">Checkout</a>
+        </div>
+      </div>
+    </div>`}
+  `;
+}
+
+function renderCheckout(){
+  const d = Store.data;
+  $('#app').innerHTML = `
+    <h3 class="section-title">Checkout</h3>
+    ${d.cart.length===0? `<div class="card empty">Your cart is empty. <a href=\"#/\">Shop now</a></div>`:
+    `<div class="card" style="padding:16px">
+      <div class="stack">
+        <label class="stack">Name<input id="chkName" placeholder="Full name" class="search-input" value="${d.user?.name||''}"/></label>
+        <label class="stack">Email<input id="chkEmail" placeholder="Email" value="${d.user?.email||''}"/></label>
+        <label class="stack">Address<textarea id="chkAddr" placeholder="Shipping address" style="background:#0b1220;border:1px solid #263043;color:var(--text);padding:10px;border-radius:12px;min-height:80px"></textarea></label>
+        <div class="row"><span class="spacer"></span><strong>Total: ${fmt(cartTotal())}</strong></div>
+        <div class="row">
+          <a class="btn ghost" href="#/cart">Back to Cart</a>
+          <button class="btn" id="placeBtn">Place Order</button>
+        </div>
+      </div>
+    </div>`}
+  `;
+  const btn = $('#placeBtn'); if(btn) btn.onclick = ()=>{
+    try{ const id=placeOrder(); toast('Order placed: '+id); location.hash = '#/orders'; }
+    catch(e){ toast(e.message); if(e.message.includes('Login')) location.hash = '#/login'; }
+  };
+}
+
+function renderLogin(){
+  $('#app').innerHTML = `
+    <h3 class="section-title">Login</h3>
+    <div class="card" style="padding:16px;max-width:460px">
+      <div class="stack">
+        <input id="lemail" placeholder="Email" />
+        <input id="lpw" placeholder="Password" type="password" />
+        <div class="row">
+          <button class="btn" id="loginBtn">Login</button>
+          <a class="btn ghost" href="#/signup">Go to Signup</a>
+        </div>
+        <div class="muted">Demo note: passwords are hashed locally with SHA‑256 and stored in LocalStorage for this demo.</div>
+      </div>
+    </div>
+  `;
+  $('#loginBtn').onclick = async()=>{
+    try{ await login($('#lemail').value, $('#lpw').value); toast('Welcome back!'); location.hash = '#/'; }
+    catch(e){ toast(e.message); }
+  };
+}
+
+function renderSignup(){
+  $('#app').innerHTML = `
+    <h3 class="section-title">Create Account</h3>
+    <div class="card" style="padding:16px;max-width:460px">
+      <div class="stack">
+        <input id="sname" placeholder="Full name" />
+        <input id="semail" placeholder="Email" />
+        <input id="spw" placeholder="Password" type="password" />
+        <div class="row">
+          <button class="btn" id="signupBtn">Signup</button>
+          <a class="btn ghost" href="#/login">Have an account? Login</a>
+        </div>
+      </div>
+    </div>
+  `;
+  $('#signupBtn').onclick = async()=>{
+    try{ await signup($('#sname').value,$('#semail').value,$('#spw').value); Store.data.user.loggedIn=true; Store.commit(); toast('Account created'); location.hash = '#/'; }
+    catch(e){ toast(e.message); }
+  };
+}
+
+function renderOrders(){
+  const d = Store.data;
+  $('#app').innerHTML = `
+    <h3 class="section-title">Order History</h3>
+    ${!d.user?.loggedIn? `<div class="card empty">Please <a href=\"#/login\">login</a> to view orders.</div>`:
+    d.orders.length===0? `<div class="card empty">No orders yet.</div>`:
+    `<div class="stack">${d.orders.map(o=>`
+      <div class="card" style="padding:14px">
+        <div class="row"><strong>Order ${o.id}</strong><span class="spacer"></span><span class="pill">${o.status}</span></div>
+        <div class="muted">Placed on ${new Date(o.createdAt).toLocaleString()}</div>
+        <table class="table" style="margin-top:8px">
+          <thead><tr><th>Item</th><th>Qty</th><th>Price</th><th class="right">Subtotal</th></tr></thead>
+          <tbody>
+            ${o.items.map(i=>{ const p=Store.data.products.find(pp=>pp.id===i.id); return `<tr><td>${p?.name||i.id}</td><td>${i.qty}</td><td>${fmt(i.price)}</td><td class=right>${fmt(i.price*i.qty)}</td></tr>`; }).join('')}
+          </tbody>
+        </table>
+        <div class="row"><span class="spacer"></span><strong>Total: ${fmt(o.total)}</strong></div>
+      </div>`).join('')}</div>`}
+  `;
+}
+
+/***********************
+ * Boot                 *
+ ***********************/
+(function init(){
+  document.getElementById('year').textContent = new Date().getFullYear();
+  // header search preset
+  const d = Store.data; const sel = $('#categorySelect'); sel.innerHTML = '<option value="">All Categories</option>' + (d.categories||[]).map(c=>`<option value="${c}">${c}</option>`).join('');
+  $('#searchBtn').onclick = ()=>{
+    const cat = $('#categorySelect').value;
+    const text = ($('#searchInput').value||'').trim().toLowerCase();
+    window._query = {cat, text}; renderHome();
+  };
+  refreshHeader();
+  navigate();
+})();
+</script>
+</body>
+</html>
